@@ -1,7 +1,7 @@
 # dsh-hdc-bridge
 
-> DSH 原生鸿蒙开发助手：`hdc` 设备闭环调试（看设备 → 截图 → 看图 → 改码 → 装包 → 验证）＋ 官方优先版本化知识层（离线 Tier-1 随包 + SDK 机读 + 官方文档检索）＋ 可选官方 DevEco CLI 构建/签名通道。
-> A DSH-native HarmonyOS dev assistant: the hdc device loop (inspect → screenshot → view → fix → install → verify), an official-first version-classified knowledge layer (offline Tier-1 bundled + SDK-accurate reads + official docs search), and an optional official DevEco CLI build/sign backend.
+> DSH 原生鸿蒙开发助手：`hdc` 设备闭环调试（看设备 → 截图 → 看图 → 改码 → 装包 → 验证）＋ 官方优先版本化知识层（离线 Tier-1 随包 + SDK 机读 + 官方文档检索）＋ 可选官方 DevEco CLI 构建/签名通道 ＋ **DevEco Code 编译辅助工具集（v0.7：switch_cwd / build_project / arkts_check / start_app / hdc_log）**。
+> A DSH-native HarmonyOS dev assistant: the hdc device loop (inspect → screenshot → view → fix → install → verify), an official-first version-classified knowledge layer (offline Tier-1 bundled + SDK-accurate reads + official docs search), an optional official DevEco CLI build/sign backend, and **the DevEco Code compile-assistance tools (v0.7: switch_cwd / build_project / arkts_check / start_app / hdc_log)**.
 
 ## 定位
 
@@ -35,6 +35,11 @@
 | `hms_docs` | 官方本地文档检索：`devecocli docs` search / read / catalog（Tier-2：全量文档，需 devecocli） |
 | `hms_api_change` | 官方跨版本破坏性变更扫描：`devecocli check compat`（versions / diff）——回答"知识在哪一版变了" |
 | `hms_lint` | 官方 lint：rules（本机 57+ 条 codelinter 规则索引）/ read-rule / check（devecocli check lint） |
+| `switch_cwd` | 编译辅助（v0.7）：切换会话鸿蒙工程根（校验 AppScope/app.json5 或 build-profile.json5 + oh-package），后续编译工具默认使用该目录 |
+| `build_project` | 编译辅助（v0.7）：devecocli build 编译打包（--product/--modules/--build-mode/clean），输出截断为尾部 50 行 + BUILD FAILED/Build completed successfully 状态行 |
+| `arkts_check` | 编译辅助（v0.7）：ArkTS 严格模式静态类型/语法检查（DevEco Studio SDK ets-loader，随包 assets/arkts-check.cjs），比整包构建更快地返回 file:line:col 诊断 |
+| `start_app` | 编译辅助（v0.7）：devecocli run --skip-build 推包启动；不指定设备时列出真机/运行中模拟器/已停止模拟器供选择，选停止的模拟器自动启动 |
+| `hdc_log` | 编译辅助（v0.7）：设备日志 collect（按关键词前缀过滤）/ clear（hilog -r 清缓冲）/ list_devices（列设备） |
 | 运行时技能 | `hdc-bridge`（设备闭环用法）、`deveco-cli`（官方 SKILL.md 改写，MIT 声明保留）、`harmonyos-knowledge`（知识层纪律：官方优先、版本化、许可合规），模型按需加载 |
 | 设备记忆 | 工具默认使用**本会话上次使用的设备**（显式 target 或面板点选设备即切换默认；掉线自动回退首台连接设备）；`hdc_list_targets` 暴露 `preferred/preferredActive` 字段 |
 | 设备面板 | v0.6：web 宿主右上角浮动面板——已连接设备（型号/API 版本）、一键截图缩略、hilog 尾部、连接指引；数据走 `/api2/hdc-bridge/*` 只读 REST（8s 轮询 + 手动刷新），headless 宿主自动跳过 |
@@ -48,6 +53,12 @@ dsh plugin --profile <name> add dsh-hdc-bridge
 
 # 或直接从 GitHub 安装（纯 JS、无构建步骤，无需授权 prepare）/ or install straight from GitHub (plain JS, no build step, no prepare grant needed)
 dsh plugin --profile <name> add github:1na-ko/dsh-hdc-bridge
+
+# 本 fork（含 v0.7 编译辅助工具）/ this fork (with the v0.7 compile-assistance tools)
+dsh plugin --profile <name> add github:Bronzesakon/dsh-hdc-bridge-complete
+
+# 本地开发（link 方式，改代码即时生效）/ local dev (link)
+dsh plugin --profile <name> add link:<项目绝对路径>
 
 # 验证组合层，然后启动 / verify the composed layer, then boot
 dsh --profile <name> --dump-config   # 确认出现 dsh-hdc-bridge 层 / confirms the dsh-hdc-bridge layer
@@ -107,6 +118,7 @@ dsh --profile <name>
 - [x] 会话头部设备面板（v0.6：web 宿主浮动面板 + 挂载 toast，/api2 REST 数据通道；Typert Remote 推送升级留待后续）
 - [x] DevEco CLI（devecocli）构建/签名封装（v0.4：可选后端 + hvigorw 降级）
 - [x] 官方优先版本化知识层（v0.4：SDK .d.ts + 官方文档检索 + 跨版本变更扫描 + 官方 lint 规则）
+- [x] DevEco Code 编译辅助工具集（v0.7：switch_cwd / build_project / arkts_check / start_app / hdc_log，移植自 gitcode.com/openharmony-sig/deveco-code，Apache-2.0 声明见 THIRD_PARTY_NOTICES.md）
 - [ ] macOS 实机验证
 - [x] 按 API 版本整理的官方知识节选随包内置（v0.5：`hms_knowledge`，20 个高频主题逐字节选，CC-BY-4.0 合规）
 

@@ -20,6 +20,22 @@
       "usage": "Adaptation (translated summary, not verbatim copy) of the official SKILL.md command reference. The copyright and permission notice is reproduced in the skill content."
     },
     {
+      "id": "deveco-code-arkts-check",
+      "name": "assets/arkts-check.cjs — ArkTS strict-mode standalone checker",
+      "license": "Apache-2.0",
+      "copyright": "Copyright (c) 2026 Huawei Device Co., Ltd.",
+      "source": "https://gitcode.com/openharmony-sig/deveco-code/blob/develop/packages/opencode/src/tool/arkts-check.cjs",
+      "usage": "Copied from the DevEco Code repository with a provenance header added; the script body is unmodified. Bundled under assets/ and executed at runtime with the local DevEco Studio bundled node (tools/node/node.exe) by the arkts_check tool."
+    },
+    {
+      "id": "deveco-code-tool-logic",
+      "name": "lib/compile-cli.mjs, lib/compile-output.mjs, lib/compile-session-cwd.mjs — ported tool helper logic",
+      "license": "Apache-2.0",
+      "copyright": "Copyright (c) 2026 Huawei Device Co., Ltd.",
+      "source": "https://gitcode.com/openharmony-sig/deveco-code (packages/opencode/src/tool/lib/deveco-cli.ts, lib/build-project-output.ts, lib/session-cwd.ts, switch-cwd.ts, start_app.ts)",
+      "usage": "Plain-JS ports (translated, not verbatim) of the DevEco Code tool helper modules behind the switch_cwd / build_project / arkts_check / start_app / hdc_log tools. The Apache-2.0 copyright line is reproduced in each lib module header."
+    },
+    {
       "id": "openharmony-docs-tier1",
       "name": "Tier-1 bundled official knowledge excerpts (knowledge/*.md, verbatim zh-CN docs)",
       "license": "CC-BY-4.0",

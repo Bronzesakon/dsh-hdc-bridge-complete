@@ -22,10 +22,20 @@ copied, adapted, or redistributed — they are referenced by link and name only.
 | ID | Name | License | Copyright | Source |
 | --- | --- | --- | --- | --- |
 | deveco-cli-skill | `deveco-cli` runtime skill (`lib/skills.mjs`) | MIT | Copyright (c) 2026 Huawei Device Co., Ltd. | <https://gitcode.com/openharmony-sig/deveco-cli/blob/develop/SKILL.md> |
+| deveco-code-arkts-check | `assets/arkts-check.cjs` — ArkTS strict-mode standalone checker | Apache-2.0 | Copyright (c) 2026 Huawei Device Co., Ltd. | <https://gitcode.com/openharmony-sig/deveco-code/blob/develop/packages/opencode/src/tool/arkts-check.cjs> |
+| deveco-code-tool-logic | `lib/compile-cli.mjs`, `lib/compile-output.mjs`, `lib/compile-session-cwd.mjs` — ported tool helper logic | Apache-2.0 | Copyright (c) 2026 Huawei Device Co., Ltd. | <https://gitcode.com/openharmony-sig/deveco-code> (`packages/opencode/src/tool/lib/deveco-cli.ts`, `lib/build-project-output.ts`, `lib/session-cwd.ts`, `switch-cwd.ts`, `start_app.ts`) |
 | openharmony-docs-tier1 | Tier-1 bundled official knowledge excerpts (`knowledge/*.md`, verbatim zh-CN docs) | CC-BY-4.0 | OpenHarmony documentation (openharmony/docs, © OpenHarmony Project Contributors), CC-BY-4.0 — <https://creativecommons.org/licenses/by/4.0/> | <https://gitee.com/openharmony/docs> |
 
 The skill is a translated summary of the official SKILL.md command reference, not a
 verbatim copy. The copyright and permission notice is reproduced in the skill content.
+
+The `assets/arkts-check.cjs` checker is copied from the DevEco Code repository
+with a provenance header added; the script body is unmodified. It is executed at
+runtime with the local DevEco Studio bundled node by the `arkts_check` tool. The
+three `lib/compile-*.mjs` modules are plain-JS ports (translated, not verbatim) of
+the DevEco Code tool helper modules behind the `switch_cwd` / `build_project` /
+`arkts_check` / `start_app` / `hdc_log` tools; the Apache-2.0 copyright line is
+reproduced in each module header.
 
 The knowledge excerpts are unmodified excerpts of the most-used API references
 and app-model/ArkTS guides from the OpenHarmony documentation project. Entries
