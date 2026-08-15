@@ -42,7 +42,7 @@
 | `hdc_log` | 编译辅助（v0.7）：设备日志 collect（按关键词前缀过滤）/ clear（hilog -r 清缓冲）/ list_devices（列设备） |
 | 运行时技能 | `hdc-bridge`（设备闭环用法）、`deveco-cli`（官方 SKILL.md 改写，MIT 声明保留）、`harmonyos-knowledge`（知识层纪律：官方优先、版本化、许可合规），模型按需加载 |
 | 设备记忆 | 工具默认使用**本会话上次使用的设备**（显式 target 或面板点选设备即切换默认；掉线自动回退首台连接设备）；`hdc_list_targets` 暴露 `preferred/preferredActive` 字段 |
-| 设备面板 | v0.6：web 宿主右上角浮动面板——已连接设备（型号/API 版本）、一键截图缩略、hilog 尾部、连接指引；数据走 `/api2/hdc-bridge/*` 只读 REST（8s 轮询 + 手动刷新），headless 宿主自动跳过 |
+| 设备面板 | v0.7.2：输入框工具行内**胶囊横条按钮**（`conversation.input.right`，位于 opencode-usage 圆环左侧）——状态点 + 设备数/异常文案；点按**向上展开**面板：本地工具链徽章、设备详情（型号/API/电池，点击设默认）、系统信息、hilog 尾部、连接指引；无拖拽/缩放、无截图按钮；数据走 `/api2/hdc-bridge/*` 只读 REST（8s 轮询 + 手动刷新），headless 宿主自动跳过 |
 | 可选知识搭配 | Tier-2 社区包 [harmony-next.skills](https://github.com/linhay/harmony-next.skills)（无 LICENSE，不随包，用户自行 `npx skills add linhay/harmony-next.skills`） |
 
 ## 安装 / Installation
@@ -115,7 +115,7 @@ dsh --profile <name>
 
 ## 路线图
 
-- [x] 会话头部设备面板（v0.6：web 宿主浮动面板 + 挂载 toast，/api2 REST 数据通道；Typert Remote 推送升级留待后续）
+- [x] 会话头部设备面板（v0.6 浮动面板 → v0.7.2 输入框胶囊按钮 + 向上展开，`/api2` REST 数据通道；Typert Remote 推送升级留待后续）
 - [x] DevEco CLI（devecocli）构建/签名封装（v0.4：可选后端 + hvigorw 降级）
 - [x] 官方优先版本化知识层（v0.4：SDK .d.ts + 官方文档检索 + 跨版本变更扫描 + 官方 lint 规则）
 - [x] DevEco Code 编译辅助工具集（v0.7：switch_cwd / build_project / arkts_check / start_app / hdc_log，移植自 gitcode.com/openharmony-sig/deveco-code，Apache-2.0 声明见 THIRD_PARTY_NOTICES.md）
