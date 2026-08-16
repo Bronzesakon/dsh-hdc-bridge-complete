@@ -66,7 +66,7 @@ dsh --profile <name>
 ## 环境要求
 
 - HarmonyOS 设备/模拟器；真机需开发者模式 + USB 调试
-- hdc 二进制自动探测：DevEco Studio 常见 SDK 路径（`<DevEco>\sdk\<apiVer>\openharmony\toolchains\hdc.exe`，apiVer 覆盖 default/10…18）→ PATH（`where.exe` / `Get-Command` / `which`）
+- DevEco Studio 自动探测：显式 `devecoPath` / `DEVECO_STUDIO_HOME` / `DEVECO_HOME` / `DEVECO_SDK_HOME` → Windows 注册表（含安装器的 WOW6432Node 记录）→ `PATH` 目录反查 → 常见默认路径；由发现到的 Studio 根继续定位 `<DevEco>\sdk\<apiVer>\openharmony\toolchains\hdc.exe`，并保留 `where.exe` / `Get-Command` / `which` 作为 hdc PATH 回退
 - 截图查看需图像输入模型；纯文本模型可用 `hdc_ui_dump` 做文本化 UI 检查
 - 可选后端 `@deveco/deveco-cli`（MIT）随插件作为 optionalDependency 自动安装（pnpm 失败容忍）；构建/签名/lint 的 `--format json` 能力需本机 DevEco Studio ≥ 6.1.0（macOS/Windows，Node ≥ 18）。签名前需一次人工 `devecocli auth login`（浏览器 OAuth）
 - `hms_api` / `hms_lint rules` 直接读本机 DevEco Studio/SDK 安装（零再分发）；未装 Studio 时这两项降级并给出指引
