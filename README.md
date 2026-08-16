@@ -10,7 +10,7 @@
 - 会话内工具卡片与 `read_image` 原生闭环
 - 按调用会话解析沙箱策略（与 `pwsh` 工具同款路线），截图写入 `<workspace>/.dsh-hdc/screenshots/`
 - 结构化的失败上报（hdc 传输层退出码不可靠，插件用输出标记 + 落盘校验兜底）
-- v0.7 起面板按官方 client 插件形态集成（边栏入口 + 浮动面板 + 官方主题），新增 `hms_emulator` 模拟器控制，Tier-1 离线知识层 28 篇
+- v0.10 将鸿蒙开发面板固定为对话输入行的胶囊入口，面板向上展开；同时补齐会话级编译、静态检查、部署与日志工具
 
 ## 工具
 
@@ -39,9 +39,14 @@
 | `hms_api_change` | 官方跨版本破坏性变更扫描：`devecocli check compat`（versions / diff）——回答"知识在哪一版变了" |
 | `hms_lint` | 官方 lint：rules（本机 57+ 条 codelinter 规则索引）/ read-rule / check（devecocli check lint） |
 | `hms_emulator` | 官方模拟器控制（devecocli emulator）：list / start / stop / create / delete + 状态注入 shake / power / rotate / volume / fold / battery / geolocation / sensor / scene；未装 CLI 时按官方 SKILL.md 指路安装（第 20 个工具） |
-| 运行时技能 | `hdc-bridge`（设备闭环用法）、`deveco-cli`（官方 SKILL.md 改写，MIT 声明保留）、`harmonyos-knowledge`（知识层纪律：官方优先、版本化、许可合规），模型按需加载 |
+| `switch_cwd` | 为当前会话切换 HarmonyOS 工程根目录，供后续编译工具使用 |
+| `build_project` | 构建项目并验证新 `.hap` 产物；devecocli 通道失败时回退到本机 hvigorw |
+| `arkts_check` | 通过 DevEco Studio SDK ets-loader 进行 ArkTS 静态检查；未传文件时自动收集 `.ets` |
+| `start_app` | 不重新构建地部署启动；devecocli 不可用时回退至 hdc 安装和启动 |
+| `hdc_log` | 收集、清除或列出设备日志；支持关键词、bundle 和 PID 过滤 |
+| 运行时技能 | `hdc-bridge`、`deveco-cli`、`harmonyos-knowledge`、`deveco-compile` 与本地 `harmony-next` 指引，模型按需加载 |
 | 设备记忆 | 工具默认使用**本会话上次使用的设备**（显式 target 或面板点选设备即切换默认；掉线自动回退首台连接设备）；`hdc_list_targets` 暴露 `preferred/preferredActive` 字段 |
-| 设备面板 | **官方 client 插件形态**（对齐平台 cordis 面板与社区远程控制插件）：入口挂左侧边栏 `sidebar.footer.action` 槽位——折叠 rail 态 36px 圆钮 + 状态点 + 数量角标（多条目自动竖排成图标列），展开态「鸿蒙」标签 + 设备数按官方间距紧贴前序按钮；点击经 ReactDOM portal 打开**右上角浮动面板**（拖拽 / 八向缩放 / 收起 / 归位 / × 关闭，不打断主界面）——设备列表（型号/API/电池）、一键截图、hilog 尾部、系统区、工具链徽章；主题走官方 `--dsw-alias-*` token、样式按官方 `data-plugin-css` 约定注入、层级对齐官方弹层，随平台生命周期卸载；面板打开 8s/20s、关闭降为 60s 慢轮询（入口状态点保持新鲜）；数据走 `/api2/hdc-bridge/*` 只读 REST；headless 宿主自动跳过 |
+| 设备面板 | 入口挂对话输入行 `conversation.input.right` 槽位的「鸿蒙」胶囊条；点击后面板固定在胶囊条上方展开，不使用 portal、浮动、拖拽、缩放或布局存储。面板保留设备列表、型号/API/电池、一键截图、hilog 尾部、系统区、工具链与版本徽章；主题走官方 `--dsw-alias-*` token，样式按 `data-plugin-css` 注入；打开 8s/20s、关闭 60s 慢轮询，数据走 `/api2/hdc-bridge/*` REST |
 | 可选知识搭配 | Tier-2 社区包 [harmony-next.skills](https://github.com/linhay/harmony-next.skills)（无 LICENSE，不随包，用户自行 `npx skills add linhay/harmony-next.skills`） |
 
 ## 安装 / Installation
@@ -95,8 +100,7 @@ dsh --profile <name>
 | v0.2 应用生命周期 | stop → clear-data → uninstall → install → start 全链路 ✓（模拟器实测） |
 | v0.2 崩溃抓取 | jscrash 按包名过滤返回源码级堆栈 ✓（模拟器）；无崩溃时优雅返回 ✓（真机） |
 | v0.2 实机登录流程 | 拉起 → dump 定位 → 分段输入 → 校验 → 点登录、请求发出 ✓（真机实测） |
-| v0.7 面板三态（无头 Edge 实测） | 展开态入口贴排（6px 官方间距）、折叠态四行图标列、往返切换、浮动面板截图即时出图、层级正确 ✓ |
-| v0.7 模拟器全量 | 20 工具 + 4 REST 路由 + 知识层 28 篇读取 + `hms_emulator` 降级指路 ✓（发布前回归） |
+| v0.10 回归 | 25 工具 + 5 运行时技能 + 4 REST 路由 + 输入行胶囊上方锚定面板 + 知识层 28 篇读取（发布前 smoke） |
 
 ## 已知限制 / Known limitations
 
@@ -115,6 +119,7 @@ dsh --profile <name>
 - [x] 按 API 版本整理的官方知识节选随包内置（v0.5：`hms_knowledge`，20 个高频主题逐字节选，CC-BY-4.0 合规）
 - [x] 会话头部设备面板（v0.6：web 宿主浮动面板 + /api2 REST 数据通道）
 - [x] 深度优化 + 面板官方化（v0.7：全量回归 smoke 入 CI、hdc-core/errors 拆分与 11 条错误码、hms_build 工作区预检、`hms_emulator` 模拟器控制、签名三类指引、Tier-1 扩至 28 篇；面板按官方 client 插件形态重做——边栏入口 + portal 浮动面板 + 官方主题 token + 无头浏览器逐态实测）
+- [x] 上游整合移植（v0.10：会话编译闭环五工具、运行时技能补全、输入行胶囊上方锚定面板）
 - [ ] macOS 实机验证
 
 ## License

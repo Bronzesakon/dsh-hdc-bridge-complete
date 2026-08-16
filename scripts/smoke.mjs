@@ -45,9 +45,10 @@ const exec = { agent: { session: undefined } }
 const lastTarget = () => { const m = [...seen].reverse().find((c) => c.includes('-t')); return m ? (m.match(/-t '([^']+)'/) || [])[1] : '' }
 
 // ---------- 1. registration ----------
-check('tools=20', registered.length === 20, 'got ' + registered.length)
-check('skills=3', skills.length === 3, 'got ' + skills.length)
+check('tools=25', registered.length === 25, 'got ' + registered.length)
+check('skills=5', skills.length === 5, 'got ' + skills.length)
 check('skills-source-runtime', skills.every((s) => s.source === 'runtime'), JSON.stringify(skills.map((s) => s.name + ':' + s.source)))
+check('compile-tools-registered', ['switch_cwd', 'build_project', 'arkts_check', 'start_app', 'hdc_log'].every((name) => registered.some((tool) => tool.name === name)))
 check('routes=4', routes.length === 4, routes.map((r) => r.path).join(','))
 
 // ---------- 2. device memory ----------
@@ -94,16 +95,15 @@ const sw = await kn.execute({ action: 'search', keywords: '日志' }, exec)
 check('search-hilog', sw.results.some((x) => x.id === 'hilog'), JSON.stringify(sw.results.slice(0, 3).map((x) => x.id)))
 
 // ---------- 4b. client bundle guards (official client-plugin contract) ----------
-// The browser half must follow the platform client-plugin shape: React from the
-// seed table, a surface registered into the declared 'shell.overlay' slot, and
-// the official data-plugin-css style injection. Regression note: v0.7.0's
-// poll() dropped its 'return' and broke the loader entry — the replay below
-// executes the real bundle, and these guards pin the official wiring.
+// The browser half uses the input-row capsule as its only entry and anchors the
+// panel above it. The replay below checks the real loader wiring and confirms
+// that no portal or persisted floating-window machinery regresses back in.
 const clientSrc = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
 check('client-loader-factory', /window\.__ModuleLoader__\.load\(/.test(clientSrc) && /exports\.apply/.test(clientSrc))
-check('client-react-module', /require\('react'\)/.test(clientSrc) && /require\('react-dom'\)/.test(clientSrc))
-check('client-slot-registration', /ctx\.slots\.inject\('sidebar\.footer\.action'/.test(clientSrc) && /ctx\.slots\.register\(/.test(clientSrc))
+check('client-react-module', /require\('react'\)/.test(clientSrc) && !/require\('react-dom'\)/.test(clientSrc))
+check('client-slot-registration', /ctx\.slots\.inject\('conversation\.input\.right'/.test(clientSrc) && /ctx\.slots\.register\(/.test(clientSrc))
 check('client-official-css-injection', /data-plugin-css/.test(clientSrc) && /--dsw-alias-/.test(clientSrc))
+check('client-anchored-not-floating', /hdcp-panel\{position:absolute/.test(clientSrc) && !/createPortal|STORE_KEY|hdcp-resize|onHeadPointerDown/.test(clientSrc))
 
 // ---------- 5. hms_emulator degradation (no devecocli in fake ctx) ----------
 const emu = registered.find((t) => t.name === 'hms_emulator')
@@ -177,8 +177,7 @@ g0.localStorage = { m: {}, getItem(k) { return k in this.m ? this.m[k] : null },
 const clientMod = await import(new URL('../lib/client.js', import.meta.url).href + '?t=' + Date.now())
 check('client-loader-captured', !!loaderCapture && loaderCapture.id === 'dsh-hdc-bridge')
 const fakeReact = makeFakeReact()
-const fakeReactDom = { createPortal: (el) => el }
-const cmod = loaderCapture && loaderCapture.factory((spec) => { if (spec === 'react') return fakeReact; if (spec === 'react-dom') return fakeReactDom; throw new Error('unexpected require: ' + spec) })
+const cmod = loaderCapture && loaderCapture.factory((spec) => { if (spec === 'react') return fakeReact; throw new Error('unexpected require: ' + spec) })
 check('client-exports-apply', !!cmod && typeof cmod.apply === 'function' && Array.isArray(cmod.inject) && cmod.inject.includes('slots'), cmod && JSON.stringify(cmod.inject))
 const slotCalls = { inject: [], register: [] }
 let applyThrew = null
@@ -193,9 +192,9 @@ if (cmod) {
   } catch (e) { applyThrew = e }
 }
 check('client-apply-no-throw', !applyThrew, String(applyThrew && applyThrew.message))
-check('client-slots-footer-action', slotCalls.inject.length === 1 && slotCalls.inject[0] === 'sidebar.footer.action', JSON.stringify(slotCalls.inject))
+check('client-slots-input-right', slotCalls.inject.length === 1 && slotCalls.inject[0] === 'conversation.input.right', JSON.stringify(slotCalls.inject))
 const regEntry = slotCalls.register[0]
-check('client-register-shape', !!regEntry && regEntry.name === 'sidebar.footer.action' && regEntry.opts && regEntry.opts.id === 'hdc-bridge' && typeof regEntry.opts.order === 'number' && typeof regEntry.comp === 'function', JSON.stringify(regEntry && { name: regEntry.name, opts: regEntry.opts }))
+check('client-register-shape', !!regEntry && regEntry.name === 'conversation.input.right' && regEntry.opts && regEntry.opts.id === 'hdc-bridge-pill' && typeof regEntry.opts.order === 'number' && typeof regEntry.comp === 'function', JSON.stringify(regEntry && { name: regEntry.name, opts: regEntry.opts }))
 function findNode(node, pred, out) {
   out = out || []
   if (!node || typeof node !== 'object') return out
@@ -207,16 +206,16 @@ function findNode(node, pred, out) {
 }
 if (regEntry && regEntry.comp) {
   fakeReact.__reset()
-  const tree1 = regEntry.comp({ wide: true })
-  const btn1 = findNode(tree1, (n) => n.type === 'button' && (n.props.className || '').indexOf('hdcp-entry') >= 0)
-  const overlay1 = findNode(tree1, (n) => n.type === 'div' && (n.props.className || '').indexOf('hdcp-overlay') >= 0)
-  check('client-entry-hidden-by-default', btn1.length === 1 && overlay1.length === 0, JSON.stringify({ btns: btn1.length, overlays: overlay1.length }))
+  const tree1 = regEntry.comp()
+  const btn1 = findNode(tree1, (n) => n.type === 'button' && (n.props.className || '').indexOf('hdcp-pill') >= 0)
+  const panel1 = findNode(tree1, (n) => n.type === 'div' && (n.props.className || '').indexOf('hdcp-panel') >= 0)
+  check('client-pill-closed-by-default', btn1.length === 1 && panel1.length === 0, JSON.stringify({ btns: btn1.length, panels: panel1.length }))
   btn1[0].props.onClick()
   fakeReact.__reset()
-  const tree2 = regEntry.comp({ wide: true })
-  const overlay2 = findNode(tree2, (n) => n.type === 'div' && (n.props.className || '').indexOf('hdcp-overlay') >= 0)
-  const root2 = findNode(tree2, (n) => n.type === 'div' && (n.props.className || '').indexOf('hdcp-root') >= 0)
-  check('client-entry-toggle-shows-panel', overlay2.length === 0 && root2.length === 1, JSON.stringify({ overlays: overlay2.length, roots: root2.length }))
+  const tree2 = regEntry.comp()
+  const panel2 = findNode(tree2, (n) => n.type === 'div' && (n.props.className || '').indexOf('hdcp-panel') >= 0)
+  const root2 = findNode(tree2, (n) => n.type === 'span' && (n.props.className || '').indexOf('hdcp-root') >= 0)
+  check('client-pill-toggle-shows-anchored-panel', panel2.length === 1 && root2.length === 1, JSON.stringify({ panels: panel2.length, roots: root2.length }))
 }
 g0.document = savedG.document
 g0.localStorage = savedG.localStorage
