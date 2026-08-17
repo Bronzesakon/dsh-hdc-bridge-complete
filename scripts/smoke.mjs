@@ -4,7 +4,7 @@
 const MOD_URL = new URL('../lib/host.js', import.meta.url).href
 import { readFile } from 'node:fs/promises'
 import { isDevEcoProductInfo, discoverHdcCandidates, parseRegistryPathEntries, parseRegistryPaths, splitPathEntries } from '../lib/studio.mjs'
-import { panelHdcCandidates } from '../lib/panel.mjs'
+import { panelHdcCandidates, parsePanelTargets } from '../lib/panel.mjs'
 let failures = 0
 function check(name, cond, extra) {
   console.log((cond ? 'PASS' : 'FAIL') + ' [' + name + ']' + (cond || extra === undefined ? '' : ' ' + extra))
@@ -60,6 +60,8 @@ check('studio-registry-path-entry-parser', JSON.stringify(parseRegistryPathEntri
 check('studio-product-identity', isDevEcoProductInfo({ name: 'DevEco Studio', productVendor: 'Huawei' }) && !isDevEcoProductInfo({ name: 'PyCharm', productVendor: 'JetBrains' }))
 const discoveredHdc = discoverHdcCandidates().candidates[0]
 check('panel-uses-discovered-hdc', !!discoveredHdc && panelHdcCandidates().includes(discoveredHdc.path), JSON.stringify({ discoveredHdc, panelCandidates: panelHdcCandidates().slice(0, 4) }))
+const targetFixture = 'HUAWEI_MATEPAD\ttcp\tConnected\t192.168.1.11:12345\nCOM3\tCOM3\nCOM4\tCOM4\tDisconnected\n'
+check('panel-filters-serial-targets', JSON.stringify(parsePanelTargets(targetFixture).map((target) => target.id)) === JSON.stringify(['HUAWEI_MATEPAD']))
 
 // ---------- 2. device memory ----------
 const hilog = registered.find((t) => t.name === 'hdc_hilog')
