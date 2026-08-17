@@ -3,7 +3,7 @@
 // its graceful-degradation paths). Run: node scripts/smoke.mjs
 const MOD_URL = new URL('../lib/host.js', import.meta.url).href
 import { readFile } from 'node:fs/promises'
-import { isDevEcoProductInfo, parseRegistryPaths, splitPathEntries } from '../lib/studio.mjs'
+import { isDevEcoProductInfo, parseRegistryPathEntries, parseRegistryPaths, splitPathEntries } from '../lib/studio.mjs'
 let failures = 0
 function check(name, cond, extra) {
   console.log((cond ? 'PASS' : 'FAIL') + ' [' + name + ']' + (cond || extra === undefined ? '' : ' ' + extra))
@@ -54,6 +54,8 @@ check('routes=4', routes.length === 4, routes.map((r) => r.path).join(','))
 const registryFixture = 'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Huawei\\DevEco Studio\\243\r\n    (Default)    REG_SZ    C:\\Users\\tester\\DevEco Studio\r\n    Build    REG_SZ    243.1\r\n'
 check('studio-registry-path-parser', parseRegistryPaths(registryFixture)[0] === 'C:\\Users\\tester\\DevEco Studio')
 check('studio-path-entry-parser', JSON.stringify(splitPathEntries('C:\\DevEco Studio\\bin;D:\\tools', ';')) === JSON.stringify(['C:\\DevEco Studio\\bin', 'D:\\tools']))
+const pathRegistryFixture = 'Path    REG_EXPAND_SZ    C:\\DevEco Studio\\sdk\\default\\openharmony\\toolchains;D:\\tools\\bin\r\n'
+check('studio-registry-path-entry-parser', JSON.stringify(parseRegistryPathEntries(pathRegistryFixture)) === JSON.stringify(['C:\\DevEco Studio\\sdk\\default\\openharmony\\toolchains', 'D:\\tools\\bin']))
 check('studio-product-identity', isDevEcoProductInfo({ name: 'DevEco Studio', productVendor: 'Huawei' }) && !isDevEcoProductInfo({ name: 'PyCharm', productVendor: 'JetBrains' }))
 
 // ---------- 2. device memory ----------
