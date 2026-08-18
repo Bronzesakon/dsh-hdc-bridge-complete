@@ -16,6 +16,8 @@
 
 > 约定：所有工具**失败不抛异常**，统一返回业务值 `{ ok: false, error, hint }`（error 为可读原因，hint 为修复指引）；成功返回带 `ok: true` 的结果对象。工具描述里同时给出 error 示例。这是本插件的显式约定（官方工具层允许抛 ToolFailure，本插件为面板/技能一致性选择返回值形式并在此声明）。
 
+这份 README 是 `dsh-hdc-bridge` 的项目版使用手册。它不仅列出原始工具，还说明模型在真实鸿蒙工程中应如何编排调用、如何判断回退是否真的成功，以及安装本插件后新增的 DSH 能力边界。
+
 | 工具 | 说明 |
 | --- | --- |
 | `hdc_list_targets` | 列出已连接设备/模拟器（空列表 + 连接指引） |
@@ -112,13 +114,203 @@ dsh --profile <name>
   - 软键盘会改变页面布局：每次点击/输入前使用最新 dump 的坐标，否则可能点到键盘区
   - 键盘可能遮住按钮：先 `hdc_ui action=key key=Back` 收起键盘，再按新坐标点击
 
+## 模型调用手册
+
+### 标准工程闭环
+
+模型接手一个 HarmonyOS 工程时，按以下顺序调用：
+
+1. `switch_cwd` 指向包含 `build-profile.json5` 的工程根目录。
+2. `hms_setup` action=`doctor` 确认 DevEco Studio、SDK、JBR、hdc、devecocli 和目标 API。
+3. `hdc_log` action=`list_devices` 或 `hdc_list_targets` 确认设备；多设备时保存返回的 `preferred` 或明确选择 `target`。
+4. 修改 `.ets` 后调用 `arkts_check`。
+5. 调用 `build_project`；需要全量重建时传 `clean:true`，该调用执行 clean → build → HAP 产物校验。
+6. 需要安装、启动和 mission 证明时调用 `hms_build` action=`run`；只启动已有 HAP 时调用 `start_app`。
+7. 用 `hdc_ui_dump`、`hdc_ui_find`、`hdc_screenshot`、`hdc_hilog` 或 `hdc_crash` 做设备侧验证。
+
+不要把 `build_project` 的文字输出当作唯一成功依据；同时检查 `ok`、`backend`、`artifactVerified`、`hapAfter` 和真实设备状态。
+
+### 典型 tool call
+
+```json
+{"name":"switch_cwd","arguments":{"path":"E:\\ScribePad"}}
+```
+
+```json
+{"name":"hms_setup","arguments":{"action":"doctor"}}
+```
+
+```json
+{"name":"hdc_log","arguments":{"action":"list_devices"}}
+```
+
+```json
+{"name":"arkts_check","arguments":{}}
+```
+
+普通增量构建：
+
+```json
+{"name":"build_project","arguments":{"clean":false,"product":"default","build_mode":"debug"}}
+```
+
+全量重建：
+
+```json
+{"name":"build_project","arguments":{"clean":true,"product":"default","build_mode":"debug"}}
+```
+
+真实部署闭环：
+
+```json
+{"name":"hms_build","arguments":{"action":"run","projectPath":"E:\\ScribePad","device":"192.168.1.11:12345"}}
+```
+
+成功时应看到 `ok:true`、`stage:"start"`、目标 `target`、HAP 路径和 `missionVerified:true`。只清理构建目录时使用 `hms_build` action=`clean`；它是 clean-only，不会自动重新 build。
+
+### `start_app` 的安全调用方式
+
+`start_app` 不重新构建。未传 `hvd` 时只发现设备，不安装、不启动：
+
+```json
+{"name":"start_app","arguments":{}}
+```
+
+模型应从返回的在线设备列表中选择目标，再显式调用：
+
+```json
+{"name":"start_app","arguments":{"hvd":"192.168.1.11:12345"}}
+```
+
+可选参数是 `ability`、`module`、`target`。当 devecocli 的设备发现通道被 mojo 阻断时，主提示仍以 hdc 的真实在线设备为准，不再并列显示误导性的“未检测到可用设备”。
+
+### UI 观察 → 操作 → 验证
+
+```json
+{"name":"hdc_ui_dump","arguments":{}}
+```
+
+```json
+{"name":"hdc_ui_find","arguments":{"text":"登录","exact":true}}
+```
+
+把 `hdc_ui_find` 返回的 `center` 坐标传给操作工具：
+
+```json
+{"name":"hdc_ui","arguments":{"action":"tap","x":540,"y":1460}}
+```
+
+```json
+{"name":"hdc_ui","arguments":{"action":"input","text":"test@example.com"}}
+```
+
+每次键盘弹出、页面滚动或窗口改变后，都要重新 dump/find，不能复用旧坐标。键盘遮挡时先发送 `{"action":"key","key":"Back"}`。
+
+### 截图、日志和崩溃
+
+```json
+{"name":"hdc_screenshot","arguments":{}}
+```
+
+截图返回的本地 JPEG 路径交给 `read_image`。纯文本模型使用：
+
+```json
+{"name":"hdc_hilog","arguments":{"lines":200,"tag":"PARAM"}}
+```
+
+```json
+{"name":"hdc_log","arguments":{"action":"collect","bundle":"com.example.scribepad","lines":300}}
+```
+
+```json
+{"name":"hdc_crash","arguments":{"kind":"all","bundleName":"com.example.scribepad","lines":80}}
+```
+
+## 新增能力速查
+
+### 设备层（12 个工具）
+
+`hdc_list_targets` 列出全量 hdc targets；`hdc_connect` 连接 TCP 设备；`hdc_shell` 执行设备 shell；`hdc_screenshot` 截图并拉回 JPEG；`hdc_install` 安装 HAP；`hdc_hilog` 读取 hilog；`hdc_ui_dump` 文本化 UI 层级树；`hdc_ui_find` 按文本/hint 查控件并计算中心点；`hdc_ui` 执行 tap、doubleTap、longPress、swipe、input、key；`hdc_app` 管理应用生命周期；`hdc_crash` 读取 faultlogger 崩溃；`hdc_diag` 诊断本机插件和沙箱状态。
+
+### 官方工具链层（8 个工具）
+
+`hms_setup` 汇总 hdc/Studio/SDK/devecocli/设备和三源 API 版本；`hms_build` 封装官方 build/run/sign/clean/status；`hms_lint` 提供本机 57+ 条规则、规则文档和官方 lint；`hms_api` 从本机 SDK `.d.ts` 读取模块、声明和 `@since/@deprecated/@syscap`；`hms_knowledge` 提供 28 篇离线官方知识；`hms_docs` 访问 devecocli 官方本地文档；`hms_api_change` 扫描 SDK 版本间破坏性变更；`hms_emulator` 控制模拟器和注入电量、GPS、传感器、折叠、旋转、运动场景等状态。
+
+### DevEco Code 编译层（5 个工具）
+
+`switch_cwd`、`build_project`、`arkts_check`、`start_app`、`hdc_log` 是从 `deveco-code-gitcode` 对照移植的会话编译闭环。它们共享会话工程根目录、沿用官方参数命名，并在本插件层补充 hdc 设备过滤、HAP 产物校验、JBR 注入和结构化失败结果。
+
+## 返回值契约
+
+- `hdc_log action=list_devices` 返回 `devices`、全量 `targets`、`preferred`、`preferredActive`；COM 串口只保留在 `targets`。
+- `hms_build build` 返回 `backend`、`artifactVerified`、`hapBefore`、`hapAfter`；没有真实 HAP 时不得 `ok:true`。
+- `hms_build run` fallback 返回 `stage`、`hap`、`bundleName`、`target`、`start.ok`、`missionVerified`。
+- `build_project` 返回 `artifactStale`、`hapBefore`、`hapAfter`、`backend`；`clean:true` 的 `command` 明确显示 clean → build。
+- `start_app` 未传 `hvd` 时返回 `availableDevices`，只做发现；传入 `hvd` 后才允许部署和启动。
+- 构建日志和 `hms_build` 输出会清除 ANSI 转义码；长输出按尾部截断，状态行保持在末尾可见。
+
+## 知识查询纪律
+
+涉及 ArkTS/API 时先确定目标 API 版本，再按以下优先级：
+
+1. `hms_api`：本机 SDK 的机器可读声明和版本标签；
+2. `hms_knowledge`：离线官方节选，适合概念和用法；
+3. `hms_docs`：全量官方本地文档；
+4. `hms_api_change`：跨版本破坏性变更；
+5. `hms_lint`：本机官方规则验证。
+
+示例：
+
+```json
+{"name":"hms_api","arguments":{"action":"lookup","module":"@ohos.promptAction","name":"showToast"}}
+```
+
+```json
+{"name":"hms_knowledge","arguments":{"action":"search","keywords":"Navigation 路由"}}
+```
+
+```json
+{"name":"hms_lint","arguments":{"action":"rules","limit":10}}
+```
+
+## 面板与 REST
+
+Web profile 注册以下路由：
+
+- `/api2/hdc-bridge/panel-state`：设备、工具链、SDK/API 和面板状态；
+- `/api2/hdc-bridge/select`：选择会话默认设备；
+- `/api2/hdc-bridge/screenshot.jpeg`：当前目标截图；
+- `/api2/hdc-bridge/hilog`：面板日志。
+
+面板入口是对话输入行右侧的“鸿蒙”胶囊按钮。点击胶囊展开，面板锚定在胶囊上方；关闭继续使用同一个胶囊按钮。样式使用 DSH 官方 `--dsw-alias-*` token 和 `data-plugin-css` 注入，不使用 portal、浮动独立窗口、拖拽、缩放或布局持久化。
+
+## 工具链探测和沙箱
+
+Windows 探测顺序为：显式路径/环境变量 → 注册表（含 WOW6432Node）→ PATH 反查 → 常见 DevEco Studio/SDK 目录。Studio 根目录继续用于定位 SDK API、JBR Java、hvigorw 和 `hdc.exe`。
+
+构建、运行、签名、compat 等官方命令可能被 DSH 受限策略阻断。插件会返回 `mojoFatal` 或 `outsideWorkspace`，并在可行时切换到本地 hvigorw/hdc 回退；回退必须通过真实产物、安装结果和 mission 检查。签名 OAuth 仍需用户在宿主终端执行一次 `devecocli auth login`。
+
+## 当前实测范围
+
+Windows + DevEco Studio 6.1.1.300 + SDK API 24 + TCP 真机 `192.168.1.11:12345` 已验证：
+
+- 25 个工具、5 个运行时 skill、4 个面板 REST 路由注册；
+- `switch_cwd`、ArkTS 32 文件检查、设备首次发现和 preferred 回填；
+- `build_project(clean=true)` 真实 clean → build → HAP 校验；
+- `hms_build clean/build/run` 真实产物、安装、启动和 `missionVerified:true`；
+- `start_app` 无 `hvd` 时列设备且不自动部署；
+- build/run 输出 ANSI 清理；
+- 离线知识 28 篇、hms_lint 57+ 规则索引和插件 smoke 回归。
+
+仍需人工覆盖：面板 GUI 视觉逐态、签名 OAuth 成功路径、不同 Studio/SDK 版本和 macOS 真机。
+
 ## 路线图
 
 - [x] DevEco CLI（devecocli）构建/签名封装（v0.4：可选后端 + hvigorw 降级）
 - [x] 官方优先版本化知识层（v0.4：SDK .d.ts + 官方文档检索 + 跨版本变更扫描 + 官方 lint 规则）
-- [x] 按 API 版本整理的官方知识节选随包内置（v0.5：`hms_knowledge`，20 个高频主题逐字节选，CC-BY-4.0 合规）
-- [x] 会话头部设备面板（v0.6：web 宿主浮动面板 + /api2 REST 数据通道）
-- [x] 深度优化 + 面板官方化（v0.7：全量回归 smoke 入 CI、hdc-core/errors 拆分与 11 条错误码、hms_build 工作区预检、`hms_emulator` 模拟器控制、签名三类指引、Tier-1 扩至 28 篇；面板按官方 client 插件形态重做——边栏入口 + portal 浮动面板 + 官方主题 token + 无头浏览器逐态实测）
+- [x] 按 API 版本整理的官方知识节选随包内置（v0.5：`hms_knowledge`，28 个高频主题逐字节选，CC-BY-4.0 合规）
+- [x] 输入行设备面板（v0.6：Web 宿主 REST 数据通道 + 对话输入行入口）
+- [x] 深度优化 + 面板官方化（v0.7：全量回归 smoke、hdc-core/errors 拆分与 11 条错误码、hms_build 工作区预检、`hms_emulator` 模拟器控制、签名三类指引、Tier-1 扩至 28 篇；面板使用官方 client 槽位和主题 token，胶囊上方锚定展开）
 - [x] 上游整合移植（v0.10：会话编译闭环五工具、运行时技能补全、输入行胶囊上方锚定面板）
 - [ ] macOS 实机验证
 

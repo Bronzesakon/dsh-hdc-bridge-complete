@@ -85,7 +85,7 @@ const lr = await listTool.execute({}, exec)
 check('list-preferred', lr.preferred === 'DEV_A' && lr.preferredActive === true, JSON.stringify({ preferred: lr.preferred, active: lr.preferredActive }))
 const startTool = registered.find((tool) => tool.name === 'start_app')
 const noDeviceStart = await startTool.execute({}, exec)
-check('start-app-no-hvd-does-not-auto-deploy', noDeviceStart.ok === false && !noDeviceStart.hdcFallback && noDeviceStart.availableDevices.some((target) => target.id === 'DEV_A') && /请指定要使用的设备/.test(noDeviceStart.text || ''), JSON.stringify(noDeviceStart))
+check('start-app-no-hvd-does-not-auto-deploy', noDeviceStart.ok === false && !noDeviceStart.hdcFallback && noDeviceStart.availableDevices.some((target) => target.id === 'DEV_A') && /请指定要使用的设备/.test(noDeviceStart.text || '') && !/devecocli background|未检测到可用设备/.test(noDeviceStart.text || ''), JSON.stringify(noDeviceStart))
 
 // A fresh host instance must initialize hdc itself before the first
 // list_devices call; this guards the regression where the result depended on
