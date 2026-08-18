@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { isDevEcoProductInfo, discoverHdcCandidates, parseRegistryPathEntries, parseRegistryPaths, splitPathEntries } from '../lib/studio.mjs'
 import { snippetFor } from '../lib/sdk-dts.mjs'
 import * as compileOut from '../lib/compile-output.mjs'
+import { formatCommandResult, formatDeviceSelectionPrompt } from '../lib/compile-cli.mjs'
 import { panelHdcCandidates, parsePanelTargets } from '../lib/panel.mjs'
 let failures = 0
 function check(name, cond, extra) {
@@ -68,6 +69,8 @@ const snippetFixture = 'export function update(asset: Asset, query: Query): void
 const queryWindows = snippetFor(snippetFixture, 'query', 40)
 check('sdk-snippet-exact-name', queryWindows.length === 1 && queryWindows[0].text.includes('function query'))
 check('build-output-failure-status', compileOut.formatBuildProjectOutput({ stdout: 'Build completed successfully (exitCode=0)', stderr: 'hvigor ERROR: ENOENT', exitCode: 1 }).text.includes('BUILD FAILED (exitCode=1)'))
+check('build-output-truncate-export', compileOut.truncateOutput(Array.from({ length: 55 }, (_, i) => 'line-' + i).join('\n')).truncated === true)
+check('compile-cli-source-formatting', formatDeviceSelectionPrompt('\u001b[32mName  Kind\nPhone  device\u001b[0m', '').includes('请指定要使用的设备。') && !/\u001b\[/.test(formatCommandResult('devecocli device list', { stdout: '\u001b[32mout\u001b[0m', stderr: '' })))
 
 // ---------- 2. device memory ----------
 const hilog = registered.find((t) => t.name === 'hdc_hilog')
@@ -80,6 +83,9 @@ check('memory-flow', t1 === 'DEV_A' && t2 === 'DEV_B' && t3 === 'DEV_B' && t4 ==
 connected = ['DEV_A', 'DEV_B']
 const lr = await listTool.execute({}, exec)
 check('list-preferred', lr.preferred === 'DEV_A' && lr.preferredActive === true, JSON.stringify({ preferred: lr.preferred, active: lr.preferredActive }))
+const startTool = registered.find((tool) => tool.name === 'start_app')
+const noDeviceStart = await startTool.execute({}, exec)
+check('start-app-no-hvd-does-not-auto-deploy', noDeviceStart.ok === false && !noDeviceStart.hdcFallback, JSON.stringify(noDeviceStart))
 
 // A fresh host instance must initialize hdc itself before the first
 // list_devices call; this guards the regression where the result depended on
@@ -94,7 +100,7 @@ mod.apply({
 })
 const freshList = freshRegistered.find((tool) => tool.name === 'hdc_log')
 const firstList = await freshList.execute({ action: 'list_devices' }, exec)
-check('list-devices-first-call', firstList.ok === true && firstList.deviceCount === 2 && firstList.preferredActive === false && Array.isArray(firstList.targets), JSON.stringify(firstList))
+check('list-devices-first-call', firstList.ok === true && firstList.deviceCount === 2 && firstList.preferred === 'DEV_A' && firstList.preferredActive === true && Array.isArray(firstList.targets), JSON.stringify(firstList))
 let renderedList = ''
 try { renderedList = freshList.output.render({}, firstList)[0].text } catch (error) { renderedList = String(error && error.message ? error.message : error) }
 let renderedJson = null
@@ -103,6 +109,8 @@ check('list-devices-render-json', !!renderedJson && Array.isArray(renderedJson.d
 
 const hostSrc = await readFile(new URL('../lib/host.js', import.meta.url), 'utf8')
 check('hvigor-build-log-isolation', /build-cache-dir=/.test(hostSrc) && /build-logs/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc) && hostSrc.includes("joinPath(base, '.dsh-hvigor-tmp')"))
+check('hms-build-no-empty-success', hostSrc.includes('function buildResultOk') && hostSrc.includes('buildResultOk(r) && !deMojo') && hostSrc.includes('buildResultOk(r) && !mojo') && hostSrc.includes('artifactVerified'))
+check('hms-build-run-ensures-hdc', hostSrc.includes('await ensureHdc(policy)') && hostSrc.includes('install({ hapPath: hap, target: q(args.device) || undefined }, policy)'))
 
 // ---------- 3. panel routes (env-agnostic paths) ----------
 const mkRes = () => ({ statusCode: 0, headers: {}, body: '', writeHead(c, h) { this.statusCode = c; this.headers = h }, end(b) { this.body = b } })
