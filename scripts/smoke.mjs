@@ -4,6 +4,8 @@
 const MOD_URL = new URL('../lib/host.js', import.meta.url).href
 import { readFile } from 'node:fs/promises'
 import { isDevEcoProductInfo, discoverHdcCandidates, parseRegistryPathEntries, parseRegistryPaths, splitPathEntries } from '../lib/studio.mjs'
+import { snippetFor } from '../lib/sdk-dts.mjs'
+import * as compileOut from '../lib/compile-output.mjs'
 import { panelHdcCandidates, parsePanelTargets } from '../lib/panel.mjs'
 let failures = 0
 function check(name, cond, extra) {
@@ -62,6 +64,10 @@ const discoveredHdc = discoverHdcCandidates().candidates[0]
 check('panel-uses-discovered-hdc', !!discoveredHdc && panelHdcCandidates().includes(discoveredHdc.path), JSON.stringify({ discoveredHdc, panelCandidates: panelHdcCandidates().slice(0, 4) }))
 const targetFixture = 'HUAWEI_MATEPAD\ttcp\tConnected\t192.168.1.11:12345\nCOM3\tCOM3\nCOM4\tCOM4\tDisconnected\n'
 check('panel-filters-serial-targets', JSON.stringify(parsePanelTargets(targetFixture).map((target) => target.id)) === JSON.stringify(['HUAWEI_MATEPAD']))
+const snippetFixture = 'export function update(asset: Asset, query: Query): void\nexport function query(asset: Asset): Result\nexport function remove(asset: Asset): void'
+const queryWindows = snippetFor(snippetFixture, 'query', 40)
+check('sdk-snippet-exact-name', queryWindows.length === 1 && queryWindows[0].text.includes('function query'))
+check('build-output-failure-status', compileOut.formatBuildProjectOutput({ stdout: 'Build completed successfully (exitCode=0)', stderr: 'hvigor ERROR: ENOENT', exitCode: 1 }).text.includes('BUILD FAILED (exitCode=1)'))
 
 // ---------- 2. device memory ----------
 const hilog = registered.find((t) => t.name === 'hdc_hilog')
