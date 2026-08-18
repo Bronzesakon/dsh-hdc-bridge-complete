@@ -81,6 +81,24 @@ connected = ['DEV_A', 'DEV_B']
 const lr = await listTool.execute({}, exec)
 check('list-preferred', lr.preferred === 'DEV_A' && lr.preferredActive === true, JSON.stringify({ preferred: lr.preferred, active: lr.preferredActive }))
 
+// A fresh host instance must initialize hdc itself before the first
+// list_devices call; this guards the regression where the result depended on
+// an earlier hdc_* tool having already discovered the executable.
+const freshRegistered = []
+mod.apply({
+  get() { return undefined },
+  inject() {},
+  shell: fakeShell(),
+  tools: { register: (d) => freshRegistered.push(d) },
+  effect: (fn) => fn(),
+})
+const freshList = freshRegistered.find((tool) => tool.name === 'hdc_log')
+const firstList = await freshList.execute({ action: 'list_devices' }, exec)
+check('list-devices-first-call', firstList.ok === true && firstList.deviceCount === 2 && firstList.preferredActive === false && Array.isArray(firstList.targets), JSON.stringify(firstList))
+
+const hostSrc = await readFile(new URL('../lib/host.js', import.meta.url), 'utf8')
+check('hvigor-build-log-isolation', /HVIGOR_USER_HOME/.test(hostSrc) && /build-logs/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc))
+
 // ---------- 3. panel routes (env-agnostic paths) ----------
 const mkRes = () => ({ statusCode: 0, headers: {}, body: '', writeHead(c, h) { this.statusCode = c; this.headers = h }, end(b) { this.body = b } })
 const mkReq = (body) => { const q = { method: 'POST' }; q.on = (ev, cb) => { if (ev === 'data') cb(JSON.stringify(body)); else if (ev === 'end') cb() }; return q }
