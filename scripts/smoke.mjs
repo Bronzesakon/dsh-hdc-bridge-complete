@@ -95,9 +95,14 @@ mod.apply({
 const freshList = freshRegistered.find((tool) => tool.name === 'hdc_log')
 const firstList = await freshList.execute({ action: 'list_devices' }, exec)
 check('list-devices-first-call', firstList.ok === true && firstList.deviceCount === 2 && firstList.preferredActive === false && Array.isArray(firstList.targets), JSON.stringify(firstList))
+let renderedList = ''
+try { renderedList = freshList.output.render({}, firstList)[0].text } catch (error) { renderedList = String(error && error.message ? error.message : error) }
+let renderedJson = null
+try { renderedJson = JSON.parse(renderedList) } catch { /* assertion below reports the raw text */ }
+check('list-devices-render-json', !!renderedJson && Array.isArray(renderedJson.devices) && Array.isArray(renderedJson.targets) && 'preferredActive' in renderedJson, renderedList)
 
 const hostSrc = await readFile(new URL('../lib/host.js', import.meta.url), 'utf8')
-check('hvigor-build-log-isolation', /HVIGOR_USER_HOME/.test(hostSrc) && /build-logs/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc))
+check('hvigor-build-log-isolation', /build-cache-dir=/.test(hostSrc) && /build-logs/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc) && hostSrc.includes("joinPath(base, '.dsh-hvigor-tmp')"))
 
 // ---------- 3. panel routes (env-agnostic paths) ----------
 const mkRes = () => ({ statusCode: 0, headers: {}, body: '', writeHead(c, h) { this.statusCode = c; this.headers = h }, end(b) { this.body = b } })
