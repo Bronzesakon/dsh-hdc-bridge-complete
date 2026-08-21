@@ -108,7 +108,8 @@ try { renderedJson = JSON.parse(renderedList) } catch { /* assertion below repor
 check('list-devices-render-json', !!renderedJson && Array.isArray(renderedJson.devices) && Array.isArray(renderedJson.targets) && 'preferredActive' in renderedJson, renderedList)
 
 const hostSrc = await readFile(new URL('../lib/host.js', import.meta.url), 'utf8')
-check('hvigor-build-log-isolation', /build-cache-dir=/.test(hostSrc) && /build-logs/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc) && hostSrc.includes("joinPath(base, '.dsh-hvigor-tmp')"))
+check('hvigor-build-log-isolation', /HVIGOR_USER_HOME/.test(hostSrc) && /build-logs/.test(hostSrc) && /dsh-hvigor-tmp/.test(hostSrc) && /retriedIsolatedHome/.test(hostSrc) && hostSrc.includes("joinPath(base, '.dsh-hvigor-tmp')") && /--stop-daemon/.test(hostSrc) && /--no-daemon/.test(hostSrc) && /JAVA_HOME/.test(hostSrc))
+check('hvigor-jbr-daemon-reset', /daemonStopped: true/.test(hostSrc) && /HVIGOR_USER_HOME/.test(hostSrc) && /app_packing_tool\.jar/.test(hostSrc) && /onDeviceTest/.test(hostSrc))
 check('hms-build-no-empty-success', hostSrc.includes('function buildResultOk') && hostSrc.includes('buildResultOk(r) && !deMojo') && hostSrc.includes('buildResultOk(r) && !mojo') && hostSrc.includes('artifactVerified'))
 check('hms-build-run-ensures-hdc', hostSrc.includes('await ensureHdc(policy)') && hostSrc.includes('install({ hapPath: hap, target: q(args.device) || undefined }, policy)'))
 check('hms-build-run-verifies-mission', hostSrc.includes('missionVerified: Boolean(mission.ok)') && hostSrc.includes("appAction({ action: 'start', bundleName, target: q(args.device) || undefined }, policy)"))

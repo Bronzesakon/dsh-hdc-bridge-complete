@@ -288,7 +288,7 @@ Web profile 注册以下路由：
 
 Windows 探测顺序为：显式路径/环境变量 → 注册表（含 WOW6432Node）→ PATH 反查 → 常见 DevEco Studio/SDK 目录。Studio 根目录继续用于定位 SDK API、JBR Java、hvigorw 和 `hdc.exe`。
 
-构建、运行、签名、compat 等官方命令可能被 DSH 受限策略阻断。插件会返回 `mojoFatal` 或 `outsideWorkspace`，并在可行时切换到本地 hvigorw/hdc 回退；回退必须通过真实产物、安装结果和 mission 检查。签名 OAuth 仍需用户在宿主终端执行一次 `devecocli auth login`。
+构建、运行、签名、compat 等官方命令可能被 DSH 受限策略阻断。插件会返回 `mojoFatal` 或 `outsideWorkspace`，并在可行时切换到本地 hvigorw/hdc 回退；回退必须通过真实产物、安装结果和 mission 检查。所有插件管理的 hvigor 任务都会先在项目内的 `.dsh-hvigor-tmp` 设置 `HVIGOR_USER_HOME`，执行 `hvigorw --stop-daemon`，再注入 DevEco Studio JBR 的 `JAVA_HOME` 和 `bin` 到 `PATH`，最后以 `--no-daemon` 执行，避免旧 daemon 缓存裸 `java` 环境导致 `spawn java ENOENT`（包括 `app_packing_tool.jar` / `onDeviceTest` 类任务）。停止旧 daemon 若被宿主权限策略拒绝不会阻断当前的无 daemon 任务；任务本身仍按真实退出码和产物校验判定成功。签名 OAuth 仍需用户在宿主终端执行一次 `devecocli auth login`。
 
 ## 当前实测范围
 
