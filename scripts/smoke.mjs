@@ -115,6 +115,9 @@ check('hms-build-run-ensures-hdc', hostSrc.includes('await ensureHdc(policy)') &
 check('hms-build-run-verifies-mission', hostSrc.includes('missionVerified: Boolean(mission.ok)') && hostSrc.includes("appAction({ action: 'start', bundleName, target: q(args.device) || undefined }, policy)"))
 check('build-project-clean-rebuilds', hostSrc.includes("const cleanArgv = ['build', 'clean']") && hostSrc.includes("compileCli.commandText(cleanArgv) + ' && ' + compileCli.commandText(argv)") && hostSrc.includes("task: 'assembleHap'"))
 check('hms-build-output-strips-ansi', hostSrc.includes('output: compileOut.stripAnsi(fb.output)') && hostSrc.includes('output: compileOut.stripAnsi(deOutput)'))
+check('hms-emulator-list-text-fallback', hostSrc.includes("['emulator', 'list', '--format', 'json']") && hostSrc.includes("['emulator', 'list']") && hostSrc.includes('No emulator instances found.'))
+check('hms-api-change-text-fallback', hostSrc.includes("['check', 'compat', 'versions', '--format', 'json']") && hostSrc.includes("['check', 'compat', 'versions']") && hostSrc.includes('compat versions returned no output.'))
+check('hms-api-change-diff-json-output', hostSrc.includes('changes: json != null ? json : null') && hostSrc.includes('JSON.stringify(json, null, 2)'))
 
 // ---------- 3. panel routes (env-agnostic paths) ----------
 const mkRes = () => ({ statusCode: 0, headers: {}, body: '', writeHead(c, h) { this.statusCode = c; this.headers = h }, end(b) { this.body = b } })
