@@ -123,6 +123,9 @@ check('hvigor-pnpm-prewarm', /preWarmPnpm/.test(hostSrc) && /wrapper.*tools/.tes
 check('hms-api-change-stderr-merge', /mergeStderr/.test(hostSrc) && /2>&1/.test(hostSrc))
 check('hms-emulator-hdc-backfill', /hdcBackfilled/.test(hostSrc) && /isEmulatorTarget/.test(hostSrc))
 check('hms-emulator-start-poll', /pollEmulatorRunning/.test(hostSrc) && /verifiedBy/.test(hostSrc))
+check('hms-emulator-hdc-ensure', hostSrc.includes('await ensureHdc(policy)') && /hdcBackfilled/.test(hostSrc) && /pollEmulatorRunning/.test(hostSrc))
+check('hms-emulator-start-ok-fix', hostSrc.includes('ok: res.ok && poll.running'))
+check('hms-api-change-local-version-guard', hostSrc.includes("const COMPAT_MIN = '26.0.0.810'") && /localVersionGuard/.test(hostSrc) && /compatErrorText/.test(hostSrc))
 check('hms-build-hvigor-diagnostics', /hvigorDiag\(/.test(hostSrc) && /daemonStopped:/.test(hostSrc) && /hvigorUserHome:/.test(hostSrc) && /buildCacheDir:/.test(hostSrc))
 
 // ---------- 3. panel routes (env-agnostic paths) ----------
