@@ -125,6 +125,7 @@ check('hms-emulator-hdc-backfill', /hdcBackfilled/.test(hostSrc) && /isEmulatorT
 check('hms-emulator-start-poll', /pollEmulatorRunning/.test(hostSrc) && /verifiedBy/.test(hostSrc))
 check('hms-emulator-hdc-ensure', hostSrc.includes('await ensureHdc(policy)') && /hdcBackfilled/.test(hostSrc) && /pollEmulatorRunning/.test(hostSrc))
 check('hms-emulator-start-ok-fix', hostSrc.includes('ok: res.ok && poll.running'))
+check('hms-emulator-start-idempotent', hostSrc.includes('start is idempotent') && hostSrc.includes('i.status || i.state'))
 check('hms-api-change-local-version-guard', hostSrc.includes("const COMPAT_MIN = '26.0.0.810'") && /localVersionGuard/.test(hostSrc) && /compatErrorText/.test(hostSrc))
 check('hms-build-hvigor-diagnostics', /hvigorDiag\(/.test(hostSrc) && /daemonStopped:/.test(hostSrc) && /hvigorUserHome:/.test(hostSrc) && /buildCacheDir:/.test(hostSrc))
 
