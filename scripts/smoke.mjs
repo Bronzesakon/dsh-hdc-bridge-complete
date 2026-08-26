@@ -3,6 +3,9 @@
 // its graceful-degradation paths). Run: node scripts/smoke.mjs
 const MOD_URL = new URL('../lib/host.js', import.meta.url).href
 import { readFile, readdir } from 'node:fs/promises'
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
 let failures = 0
 function check(name, cond, extra) {
   console.log((cond ? 'PASS' : 'FAIL') + ' [' + name + ']' + (cond || extra === undefined ? '' : ' ' + extra))
@@ -311,6 +314,63 @@ check('diag-shows-path-source', diagStr.includes('smoke-fake'), diagStr.slice(0,
   const stB = JSON.parse(res.body)
   check('panel-path-fallback', !!stB && stB.hdc === 'hdc.exe', JSON.stringify(stB && { hdc: stB.hdc, error: stB.error }))
 }
+
+// ---------- 9. standalone Command Line Tools (CLT) toolchain ----------
+// A minimal fake CLT tree + DEVECO_CLI_CLT_PATH must light up the toolchain
+// kind, the embedded SDK, and env echo — no real Huawei install needed. The
+// machine's own DEVECO_SDK_HOME is neutralized for this block so results are
+// deterministic on dev boxes too.
+{
+  const fx = mkdtempSync(joinPath(tmpdir(), 'dsh-clt-fx-'))
+  const w = (rel, content) => {
+    const p = joinPath(fx, rel)
+    mkdirSync(joinPath(p, '..'), { recursive: true })
+    writeFileSync(p, content)
+  }
+  w('version.txt', '# Version: 26.0.0.900\n')
+  w('bin/hvigorw.cmd', '@echo off\r\n')
+  w('sdk/default/openharmony/ets/oh-uni-package.json', JSON.stringify({ apiVersion: 26, version: '26.0.0.900' }))
+  w('sdk/default/openharmony/ets/api/@ohos.smoke.d.ts', 'export const smoke: number;\n')
+  w('codelinter/plugins/demo/docs/demo-rule-cn.md', '# demo rule\n')
+  const savedSdkHome = process.env.DEVECO_SDK_HOME
+  delete process.env.DEVECO_SDK_HOME
+  process.env.DEVECO_CLI_CLT_PATH = fx
+  try {
+    const reg4 = []
+    mod.apply({
+      get() { return undefined },
+      inject() {},
+      shell: makeFakeShell(DEFAULT_RULES, null),
+      tools: { register: (d) => reg4.push(d) },
+      effect: (fn) => fn(),
+    })
+    const setup4 = reg4.find((t) => t.name === 'hms_setup')
+    const stR = await setup4.execute({ action: 'status' }, exec)
+    check('clt-status-detected', !!stR.commandLineTools && stR.commandLineTools.found === true && /^26\./.test(stR.commandLineTools.version || ''), JSON.stringify(stR.commandLineTools))
+    check('clt-hvigor-launcher-found', !!stR.hvigorFallback && stR.hvigorFallback.found === true && /bin.hvigorw/.test(stR.hvigorFallback.path || ''), JSON.stringify(stR.hvigorFallback))
+    const build4 = reg4.find((t) => t.name === 'hms_build')
+    const bs = await build4.execute({ action: 'status' }, exec)
+    // Backend priority mirrors the toolchain truth on ANY machine: devecocli
+    // wins when its package is resolvable, otherwise the CLT hvigorw fallback.
+    const cliFound = !!(bs.devecocli && bs.devecocli.found)
+    check('clt-backend-priority', bs.backend === (cliFound ? 'devecocli' : 'hvigorw') && !!bs.hvigorFallback && bs.hvigorFallback.ok === true, JSON.stringify({ backend: bs.backend, hvigor: bs.hvigorFallback }))
+    const full = await setup4.execute({}, exec)
+    check('clt-full-kind', full.toolchainKind === 'clt', JSON.stringify(full.toolchainKind))
+    check('clt-full-sdk-api26', !!full.sdk && full.sdk.found === true && full.sdk.apiVersion === 26, JSON.stringify(full.sdk && { root: full.sdk.root, apiVersion: full.sdk.apiVersion }))
+    const pr4 = await setup4.execute({ action: 'paths' }, exec)
+    check('clt-paths-env-echo', pr4.envCliCltPath === fx, String(pr4.envCliCltPath))
+    const lint4 = reg4.find((t) => t.name === 'hms_lint')
+    const lr4 = await lint4.execute({ action: 'rules' }, exec)
+    check('clt-lint-rules-alt-layout', lr4.ok === true && lr4.count >= 1 && /codelinter/.test(lr4.docsDir || ''), JSON.stringify({ ok: lr4.ok, count: lr4.count, dir: String(lr4.docsDir || '').slice(-36) }))
+  } finally {
+    delete process.env.DEVECO_CLI_CLT_PATH
+    if (savedSdkHome !== undefined) process.env.DEVECO_SDK_HOME = savedSdkHome
+    try { rmSync(fx, { recursive: true, force: true }) } catch (e) { /* temp cleanup best effort */ }
+  }
+}
+const cliHintSrc = await readFile(new URL('../lib/devecocli.mjs', import.meta.url), 'utf8')
+check('cli-hint-mentions-clt', /Command Line Tools/.test(cliHintSrc))
+check('skill-mentions-clt-path', skills.some((s) => s.name === 'deveco-cli' && /DEVECO_CLI_CLT_PATH/.test(s.content)))
 
 // ---------- summary ----------
 console.log('')

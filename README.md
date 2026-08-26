@@ -69,7 +69,11 @@ dsh --profile <name>
 - HarmonyOS 设备/模拟器；真机需开发者模式 + USB 调试
 - hdc 二进制自动探测（工具与面板共用同一套清单）：`DEVECO_SDK_HOME` 环境变量 > 本机检测到的 DevEco Studio SDK（非默认安装同样识别）> 默认安装根（apiVer 覆盖 default/10…18）→ PATH 回退（`where.exe` / `Get-Command` / `which`）；面板优先复用工具层已解析的路径，两侧行为一致
 - 截图查看需图像输入模型；纯文本模型可用 `hdc_ui_dump` 做文本化 UI 检查
-- 可选后端 `@deveco/deveco-cli`（MIT）**不随插件安装**（插件零依赖，安装期不执行任何第三方脚本）：需要构建/签名/lint/模拟器控制时自行 `npm i -g @deveco/deveco-cli`（需 DevEco Studio ≥ 6.1.0，macOS/Windows，Node ≥ 18）；未安装时相关工具全部优雅降级并给出安装指引。签名前需一次人工 `devecocli auth login`（浏览器 OAuth）
+- 可选后端 `@deveco/deveco-cli`（MIT）**不随插件安装**（插件零依赖，安装期不执行任何第三方脚本），工具链二选一：
+  - **路线 A｜DevEco Studio**：本机装 DevEco Studio ≥ 6.1.0（macOS/Windows）+ `npm i -g @deveco/deveco-cli`；
+  - **路线 B｜独立 Command Line Tools**：华为官方 zip 发行版（codelinter / hvigorw / ohpm / emulator / 内嵌 SDK，≥ 26.0.0，解压即用），下载自 developer.huawei.com/consumer/cn/download/command-line-tools-for-hmos，设置 `DEVECO_CLI_CLT_PATH` 指向解压目录即可被自动识别；**Linux 主机仅支持此形态**。
+  - 未安装时相关工具全部优雅降级并给出安装指引；`hms_setup` 一眼可查当前 `toolchainKind`（studio / clt）。签名前需一次人工 `devecocli auth login`（浏览器 OAuth）
+- 本机无任何工具链时仍可用：hdc_* 全部工具、设备面板与 Tier-1 离线知识层（随包内置）
 - `hms_api` / `hms_lint rules` 直接读本机 DevEco Studio/SDK 安装（零再分发）；未装 Studio 时这两项降级并给出指引
 - `hms_knowledge` 的 Tier-1 官方知识节选随包内置（28 篇约 1.7MB，CC-BY-4.0 逐字节选并附署名 + 逐文件溯源），**离线可用**，无需任何本机安装
 - `hms_api_change`（check compat）需要更高版本的 DevEco Studio（实测 6.1.0.830 报"min required 26.0.0.810"）；不满足时工具返回官方错误原文 + 升级指引，并提示先用 `hms_api` 的 `@since/@deprecated` 版本知识
@@ -122,7 +126,8 @@ dsh --profile <name>
 - [x] 按 API 版本整理的官方知识节选随包内置（v0.5：`hms_knowledge`，20 个高频主题逐字节选，CC-BY-4.0 合规）
 - [x] 会话头部设备面板（v0.6：web 宿主浮动面板 + /api2 REST 数据通道）
 - [x] 深度优化 + 面板官方化（v0.7：全量回归 smoke 入 CI、hdc-core/errors 拆分与 11 条错误码、hms_build 工作区预检、`hms_emulator` 模拟器控制、签名三类指引、Tier-1 扩至 28 篇；面板按官方 client 插件形态重做——边栏入口 + portal 浮动面板 + 官方主题 token + 无头浏览器逐态实测）
-- [ ] macOS 实机验证
+- [x] 统一 hdc 发现 + 支持独立 Command Line Tools（v0.7.4/v0.8.0：面板/工具层单源探测、DEVECO_SDK_HOME 动态根、CLT ≥26 双形态识别——SDK/hdc/hvigorw/codelinter 全链自动覆盖，Linux 仅 CLT 形态）
+- [ ] macOS 实机验证（macOS 路径识别逻辑已内置并随 CI 在无设备环境回归，欢迎社区以 issue 反馈实测结果）
 
 ## License
 
