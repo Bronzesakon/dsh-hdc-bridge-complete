@@ -2,7 +2,7 @@
 // everything except panel.mjs, whose direct hdc spawn is exercised only for
 // its graceful-degradation paths). Run: node scripts/smoke.mjs
 const MOD_URL = new URL('../lib/host.js', import.meta.url).href
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 let failures = 0
 function check(name, cond, extra) {
   console.log((cond ? 'PASS' : 'FAIL') + ' [' + name + ']' + (cond || extra === undefined ? '' : ' ' + extra))
@@ -14,19 +14,25 @@ const skills = []
 const routes = []
 const seen = []
 let connected = ['DEV_A', 'DEV_B']
-function fakeShell() {
+function deviceRows(list) { return list.map((id) => id + '\t\ttcp\tConnected\tlocalhost\thdc').join('\n') }
+// First matching rule answers the command; default stays empty-success so
+// unmatched probes degrade exactly like a silent failure would.
+const DEFAULT_RULES = [
+  [(c) => c.includes('list targets'), () => deviceRows(connected)],
+  [(c) => c.includes('hilog'), () => 'I 00000/HiLog: smoke line'],
+  [(c) => c.includes('PSVersionTable'), () => '7'],
+  [(c) => c.includes('hdc') && c.includes('-v'), () => 'Ver: 3.2.0c'],
+]
+function makeFakeShell(rules, sink) {
   return {
     resolve: (q) => q,
     run: async (spec) => {
       const cmd = spec.command || ''
-      seen.push(cmd)
-      let text = ''
-      if (cmd.includes('list targets')) text = connected.map((id) => id + '\t\ttcp\tConnected\tlocalhost\thdc').join('\n')
-      else if (cmd.includes('hilog')) text = 'I 00000/HiLog: smoke line'
-      else if (cmd.includes('PSVersionTable')) text = '7'
-      else if (cmd.includes('hdc') && cmd.includes('-v')) text = 'Ver: 3.2.0c'
-      else text = ''
-      return { stdout: { text }, stderr: { text: '' }, exitCode: 0, timedOut: false }
+      if (sink) sink.push(cmd)
+      for (const [pred, reply] of rules) {
+        if (pred(cmd)) { const text = typeof reply === 'function' ? reply() : reply; return { stdout: { text }, stderr: { text: '' }, exitCode: 0, timedOut: false } }
+      }
+      return { stdout: { text: '' }, stderr: { text: '' }, exitCode: 0, timedOut: false }
     },
   }
 }
@@ -34,7 +40,7 @@ function makeCtx() {
   return {
     get(n) { if (n === 'skills') return { register: (s) => { skills.push(s); return () => {} } }; return undefined },
     inject(names, cb) { if (names.includes('webServer')) cb({ webServer: { register: (r) => routes.push(r) }, effect: (fn) => fn() }) },
-    shell: fakeShell(),
+    shell: makeFakeShell(DEFAULT_RULES, seen),
     tools: { register: (d) => registered.push(d) },
     effect: (fn) => fn(),
   }
@@ -119,7 +125,7 @@ const reg2 = []
 mod.apply({
   get(n) { if (n === 'sandboxPolicy') return { resolve: () => ({ mode: 'workspace-write', workspaceRoot: 'F:/session-ws' }) }; return undefined },
   inject() {},
-  shell: fakeShell(),
+  shell: makeFakeShell(DEFAULT_RULES, seen),
   tools: { register: (d) => reg2.push(d) },
   effect: (fn) => fn(),
 })
@@ -221,6 +227,90 @@ if (regEntry && regEntry.comp) {
 g0.document = savedG.document
 g0.localStorage = savedG.localStorage
 g0.window = savedG.window
+
+// ---------- 8. issue #4 regression: one shared hdc discovery ----------
+// hms_setup paths used to ReferenceError on an undeclared candidateList();
+// it must now expose the shared candidate list without maintainer paths.
+const setupTool = registered.find((t) => t.name === 'hms_setup')
+let pathsOut = null
+let setupThrew = null
+try { pathsOut = await setupTool.execute({ action: 'paths' }, exec) } catch (e) { setupThrew = e }
+check('hms-setup-paths-no-throw', !setupThrew && Array.isArray(pathsOut && pathsOut.hdcCandidates) && pathsOut.hdcCandidates.length > 0, String(setupThrew && setupThrew.message))
+const libFiles = (await readdir(new URL('../lib/', import.meta.url))).filter((f) => /\.(mjs|js)$/.test(f))
+const offenders = []
+for (const f of libFiles) {
+  const src = await readFile(new URL('../lib/' + f, import.meta.url), 'utf8')
+  if (/F:[\\/]+Huawei/i.test(src)) offenders.push(f)
+}
+check('no-maintainer-paths', offenders.length === 0, offenders.join(',') || 'none')
+
+// Tool layer must still reach hdc via the PATH fallback when every candidate
+// root is absent from the machine (pwsh flavor per PSVersionTable rule).
+const reg3 = []
+const FALLBACK_RULES = [
+  [(c) => c.includes('list targets'), () => deviceRows(['DEV_A'])],
+  [(c) => c.includes('PSVersionTable'), () => '7'],
+  [(c) => c.includes('toolchains') && c.includes('-v'), () => ''],
+  [(c) => c.includes('where.exe'), () => 'C:\\smoke-fake\\tools\\hdc.exe\n'],
+  [(c) => c.includes('smoke-fake') && c.includes('-v'), () => 'Ver: 3.2.0d'],
+]
+mod.apply({
+  get() { return undefined },
+  inject() {},
+  shell: makeFakeShell(FALLBACK_RULES, null),
+  tools: { register: (d) => reg3.push(d) },
+  effect: (fn) => fn(),
+})
+const lt3 = reg3.find((t) => t.name === 'hdc_list_targets')
+const lr3 = await lt3.execute({}, exec)
+check('fallback-targets-ok', lr3.ok === true && lr3.targets.length === 1, JSON.stringify(lr3).slice(0, 180))
+const diag3 = reg3.find((t) => t.name === 'hdc_diag')
+let diagStr = ''
+try { diagStr = JSON.stringify(await diag3.execute({}, exec)) } catch (e) { diagStr = String(e) }
+check('diag-shows-path-source', diagStr.includes('smoke-fake'), diagStr.slice(0, 220))
+
+// Panel half (the issue #4 symptom): import panel.mjs standalone with an
+// injected probe seam, so no real hdc is needed to prove both resolution
+// orders — a path already resolved by the tool layer wins first…
+{
+  const pm = await import(new URL('../lib/panel.mjs', import.meta.url).href + '?t=' + Date.now() + '-bridge')
+  let refreshHandler = null
+  pm.startPanel({
+    ctx: { inject(names, cb) { cb({ webServer: { register(r) { if (r.path.endsWith('/refresh')) refreshHandler = r.handler } }, effect: (fn) => fn() }) } },
+    getPreferred: () => '',
+    setPreferred() {},
+    getResolvedHdcPath: () => 'Z:\\resolved-by-tools\\hdc.exe',
+    probe: {
+      accessOk: (p) => p.indexOf('resolved-by-tools') >= 0,
+      run: async () => ({ ok: true, stdout: 'Ver: 4.0.0a', stderr: '' }),
+    },
+  })
+  const res = mkRes()
+  await refreshHandler(mkReq({ shot: false }), res)
+  const stA = JSON.parse(res.body)
+  check('panel-bridge-resolution', !!stA && stA.hdc === 'hdc.exe', JSON.stringify(stA && { hdc: stA.hdc, error: stA.error }))
+}
+// …and when nothing is pre-resolved, its own discovery falls through to PATH.
+{
+  const pm = await import(new URL('../lib/panel.mjs', import.meta.url).href + '?t=' + Date.now() + '-path')
+  let refreshHandler = null
+  pm.startPanel({
+    ctx: { inject(names, cb) { cb({ webServer: { register(r) { if (r.path.endsWith('/refresh')) refreshHandler = r.handler } }, effect: (fn) => fn() }) } },
+    getPreferred: () => '',
+    setPreferred() {},
+    probe: {
+      accessOk: () => false,
+      run: async (file) => {
+        if (file === 'where.exe' || file === 'which') return { ok: true, stdout: 'Z:\\from-PATH\\bin\\hdc.exe\n', stderr: '' }
+        return { ok: true, stdout: 'Ver: 4.0.0b', stderr: '' }
+      },
+    },
+  })
+  const res = mkRes()
+  await refreshHandler(mkReq({ shot: false }), res)
+  const stB = JSON.parse(res.body)
+  check('panel-path-fallback', !!stB && stB.hdc === 'hdc.exe', JSON.stringify(stB && { hdc: stB.hdc, error: stB.error }))
+}
 
 // ---------- summary ----------
 console.log('')

@@ -67,7 +67,7 @@ dsh --profile <name>
 ## 环境要求
 
 - HarmonyOS 设备/模拟器；真机需开发者模式 + USB 调试
-- hdc 二进制自动探测：DevEco Studio 常见 SDK 路径（`<DevEco>\sdk\<apiVer>\openharmony\toolchains\hdc.exe`，apiVer 覆盖 default/10…18）→ PATH（`where.exe` / `Get-Command` / `which`）
+- hdc 二进制自动探测（工具与面板共用同一套清单）：`DEVECO_SDK_HOME` 环境变量 > 本机检测到的 DevEco Studio SDK（非默认安装同样识别）> 默认安装根（apiVer 覆盖 default/10…18）→ PATH 回退（`where.exe` / `Get-Command` / `which`）；面板优先复用工具层已解析的路径，两侧行为一致
 - 截图查看需图像输入模型；纯文本模型可用 `hdc_ui_dump` 做文本化 UI 检查
 - 可选后端 `@deveco/deveco-cli`（MIT）**不随插件安装**（插件零依赖，安装期不执行任何第三方脚本）：需要构建/签名/lint/模拟器控制时自行 `npm i -g @deveco/deveco-cli`（需 DevEco Studio ≥ 6.1.0，macOS/Windows，Node ≥ 18）；未安装时相关工具全部优雅降级并给出安装指引。签名前需一次人工 `devecocli auth login`（浏览器 OAuth）
 - `hms_api` / `hms_lint rules` 直接读本机 DevEco Studio/SDK 安装（零再分发）；未装 Studio 时这两项降级并给出指引
@@ -103,6 +103,7 @@ dsh --profile <name>
 | v0.2 实机登录流程 | 拉起 → dump 定位 → 分段输入 → 校验 → 点登录、请求发出 ✓（真机实测） |
 | v0.7 面板三态（无头 Edge 实测） | 展开态入口贴排（6px 官方间距）、折叠态四行图标列、往返切换、浮动面板截图即时出图、层级正确 ✓ |
 | v0.7 模拟器全量 | 20 工具 + 4 REST 路由 + 知识层 28 篇读取 + `hms_emulator` 降级指路 ✓（发布前回归） |
+| v0.7.4 统一 hdc 发现（issue #4 回归） | 工具层候选全败时 PATH 回退命中、面板复用工具层解析结果、面板自身 PATH 回退三场景断言 ✓（smoke）；真机环境经 `DEVECO_SDK_HOME` 动态根端到端解析直连 ✓ |
 
 ## 已知限制 / Known limitations
 

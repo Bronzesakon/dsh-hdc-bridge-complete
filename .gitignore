@@ -1,6 +1,7 @@
 node_modules/
 *.tgz
 .dsh-hdc/
+.zcode/
 .DS_Store
 Thumbs.db
 CONTINUITY.md
