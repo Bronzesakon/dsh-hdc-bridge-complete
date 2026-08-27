@@ -5,6 +5,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 CONTINUITY.md
+REVIEW-BRIEF-pr5.md
 `.hvigor/
 
 # local debug/verification sandbox.tmp-verify/

@@ -372,6 +372,72 @@ const cliHintSrc = await readFile(new URL('../lib/devecocli.mjs', import.meta.ur
 check('cli-hint-mentions-clt', /Command Line Tools/.test(cliHintSrc))
 check('skill-mentions-clt-path', skills.some((s) => s.name === 'deveco-cli' && /DEVECO_CLI_CLT_PATH/.test(s.content)))
 
+// ---------- 10. v0.8.1 hdc_shell cross-layer quoting fidelity ----------
+// Pure-helper round-trips against the real host shells (where available) plus
+// a fake-shell structural marker: with an apostrophe-bearing command, hdc must
+// receive the device-escaped inner text wrapped by the host dialect.
+{
+  const BS = String.fromCharCode(92)
+  const Q = String.fromCharCode(39)
+  const quoting = mod._quoting
+  check('quoting-helpers-exported', !!quoting && typeof quoting.dcFidelityCommand === 'function' && typeof quoting.posixQuote === 'function')
+  if (quoting && typeof quoting.dcFidelityCommand === 'function') {
+    // L1 round-trips through real shells when present: pwsh on Windows, bash elsewhere.
+    const samples = ["it's ok", "a'b'c", "echo don't"]
+    let psOk = null
+    if (process.platform === 'win32') {
+      try {
+        const { execFileSync } = await import('node:child_process')
+        psOk = true
+        for (const s of samples) {
+          const wrapped = quoting.psQuote(s)
+          const out = execFileSync('powershell.exe', ['-NoProfile', '-Command', '[Console]::Out.Write(' + wrapped + ')'], { encoding: 'utf8', timeout: 20000, windowsHide: true })
+          if (out !== s) { psOk = false; break }
+        }
+      } catch (e) {
+        const msg = String(e && e.message ? e.message : e)
+        if (/EPERM|EACCES|spawn|ENOENT/i.test(msg)) console.log('SKIP [psquote-roundtrip-pwsh] host sandbox restricts child spawn: ' + msg.slice(0, 60))
+        else psOk = false
+      }
+      check('psquote-roundtrip-pwsh', psOk === true)
+    }
+    let shOk = null
+    try {
+      const { execFileSync } = await import('node:child_process')
+      shOk = true
+      for (const s of samples) {
+        const out = execFileSync('bash', ['-c', 'printf %s ' + quoting.posixQuote(s)], { encoding: 'utf8', timeout: 20000 })
+        if (out !== s) { shOk = false; break }
+      }
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e)
+      if (/EPERM|EACCES|spawn|ENOENT/i.test(msg)) console.log('SKIP [posixquote-roundtrip-bash] host sandbox restricts child spawn: ' + msg.slice(0, 60))
+      else shOk = false
+    }
+    if (shOk !== null) check('posixquote-roundtrip-bash', shOk === true)
+    else console.log('SKIP [posixquote-roundtrip-bash] no bash on PATH')
+    // dcFidelityCommand shape: both dialects keep the device-side escape
+    // marker (backslash-apostrophe inside the wrapped text) and stay
+    // host-dialect specific.
+    const pwForm = quoting.dcFidelityCommand("ab'c", 'pwsh')
+    const nixForm = quoting.dcFidelityCommand("ab'c", 'bash')
+    const q3 = String.fromCharCode(39)
+    check('dcfidelity-inner-escape', pwForm.includes('ab' + BS + Q) && nixForm.includes('ab' + BS + Q), JSON.stringify({ pw: pwForm, nix: nixForm }))
+    check('dcfidelity-host-split', pwForm !== nixForm && pwForm.startsWith(q3) && nixForm.startsWith(q3))
+  }
+}
+const shTool = registered.find((t) => t.name === 'hdc_shell')
+seen.length = 0
+await shTool.execute({ command: "param get ab'c" }, exec)
+const sentLine = seen.find((c) => c.includes('shell'))
+const BSX = String.fromCharCode(92)
+const QX = String.fromCharCode(39)
+// Expected emitted fragment for flavor pwsh: psQuote(inner='param get ab\'c')
+// => 'param get ab\''c'  (the inner escape apostrophe doubles under psQuote)
+check('dclayer-host-marker', !!sentLine && sentLine.includes('param get ab' + BSX + QX + QX + 'c'), JSON.stringify(sentLine))
+const hostSrcQuoting = await readFile(new URL('../lib/host.js', import.meta.url), 'utf8')
+check('fallback-guard-apostrophe', /!r\.ok && !command\.includes\(APOS\)/.test(hostSrcQuoting))
+
 // ---------- summary ----------
 console.log('')
 console.log(failures === 0 ? 'SMOKE ALL PASS' : 'SMOKE FAILURES: ' + failures)
