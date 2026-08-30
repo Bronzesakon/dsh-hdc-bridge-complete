@@ -10,7 +10,7 @@
 - 会话内工具卡片与 `read_image` 原生闭环
 - 按调用会话解析沙箱策略（与 `pwsh` 工具同款路线），截图写入 `<workspace>/.dsh-hdc/screenshots/`
 - 结构化的失败上报（hdc 传输层退出码不可靠，插件用输出标记 + 落盘校验兜底）
-- v0.10 将鸿蒙开发面板固定为对话输入行的胶囊入口，面板向上展开；同时补齐会话级编译、静态检查、部署与日志工具
+- v0.7 起面板按官方 client 插件形态集成（边栏入口 + 浮动面板 + 官方主题），v0.9 补齐会话级编译、静态检查、部署与日志工具（switch_cwd / build_project / arkts_check / start_app / hdc_log）
 
 ## 截图 / Screenshots
 
@@ -54,7 +54,7 @@
 | `hdc_log` | 收集、清除或列出设备日志；支持关键词、bundle 和 PID 过滤 |
 | 运行时技能 | `hdc-bridge`、`deveco-cli`、`harmonyos-knowledge`、`deveco-compile` 与本地 `harmony-next` 指引，模型按需加载 |
 | 设备记忆 | 工具默认使用**本会话上次使用的设备**（显式 target 或面板点选设备即切换默认；掉线自动回退首台连接设备）；`hdc_list_targets` 暴露 `preferred/preferredActive` 字段 |
-| 设备面板 | 入口挂对话输入行 `conversation.input.right` 槽位的「鸿蒙」胶囊条；点击后面板固定在胶囊条上方展开，不使用 portal、浮动、拖拽、缩放或布局存储。面板保留设备列表、型号/API/电池、一键截图、hilog 尾部、系统区、工具链与版本徽章；主题走官方 `--dsw-alias-*` token，样式按 `data-plugin-css` 注入；打开 8s/20s、关闭 60s 慢轮询，数据走 `/api2/hdc-bridge/*` REST |
+| 设备面板 | **官方 client 插件形态**（对齐平台 cordis 面板与社区远程控制插件）：入口挂左侧边栏 `sidebar.footer.action` 槽位——折叠 rail 态 36px 圆钮 + 状态点 + 数量角标（多条目自动竖排成图标列），展开态「鸿蒙」标签 + 设备数按官方间距紧贴前序按钮；点击经 ReactDOM portal 打开**右上角浮动面板**（拖拽 / 八向缩放 / 收起 / 归位 / × 关闭，不打断主界面）——设备列表（型号/API/电池）、一键截图、hilog 尾部、系统区、工具链徽章；主题走官方 `--dsw-alias-*` token、样式按官方 `data-plugin-css` 约定注入、层级对齐官方弹层，随平台生命周期卸载；面板打开 8s/20s、关闭降为 60s 慢轮询（入口状态点保持新鲜）；数据走 `/api2/hdc-bridge/*` 只读 REST；headless 宿主自动跳过 |
 | 可选知识搭配 | Tier-2 社区包 [harmony-next.skills](https://github.com/linhay/harmony-next.skills)（无 LICENSE，不随包，用户自行 `npx skills add linhay/harmony-next.skills`） |
 
 ## 安装 / Installation
@@ -115,7 +115,7 @@ dsh --profile <name>
 | v0.7 面板三态（无头 Edge 实测） | 展开态入口贴排（6px 官方间距）、折叠态四行图标列、往返切换、浮动面板截图即时出图、层级正确 ✓ |
 | v0.7 模拟器全量 | 20 工具 + 4 REST 路由 + 知识层 28 篇读取 + `hms_emulator` 降级指路 ✓（发布前回归） |
 | v0.7.4 统一 hdc 发现（issue #4 回归） | 工具层候选全败时 PATH 回退命中、面板复用工具层解析结果、面板自身 PATH 回退三场景断言 ✓（smoke）；真机环境经 `DEVECO_SDK_HOME` 动态根端到端解析直连 ✓ |
-| v0.10 回归 | 25 工具 + 5 运行时技能 + 4 REST 路由 + 输入行胶囊上方锚定面板 + 知识层 28 篇读取（发布前 smoke） |
+| v0.9 回归 | 25 工具 + 5 运行时技能 + 4 REST 路由 + 官方 slots 面板 + 知识层 28 篇读取（发布前 smoke） |
 
 ## 已知限制 / Known limitations
 
