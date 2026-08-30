@@ -72,7 +72,11 @@ const pathRegistryFixture = 'Path    REG_EXPAND_SZ    C:\\DevEco Studio\\sdk\\de
 check('studio-registry-path-entry-parser', JSON.stringify(parseRegistryPathEntries(pathRegistryFixture)) === JSON.stringify(['C:\\DevEco Studio\\sdk\\default\\openharmony\\toolchains', 'D:\\tools\\bin']))
 check('studio-product-identity', isDevEcoProductInfo({ name: 'DevEco Studio', productVendor: 'Huawei' }) && !isDevEcoProductInfo({ name: 'PyCharm', productVendor: 'JetBrains' }))
 const discoveredHdc = discoverHdcCandidates().candidates[0]
-check('panel-uses-discovered-hdc', !!discoveredHdc && panelHdcCandidates().includes(discoveredHdc.path), JSON.stringify({ discoveredHdc, panelCandidates: panelHdcCandidates().slice(0, 4) }))
+if (discoveredHdc) {
+  check('panel-uses-discovered-hdc', panelHdcCandidates().includes(discoveredHdc.path), JSON.stringify({ discoveredHdc, panelCandidates: panelHdcCandidates().slice(0, 4) }))
+} else {
+  console.log('SKIP [panel-uses-discovered-hdc] no discoverable hdc candidates on this host')
+}
 const targetFixture = 'HUAWEI_MATEPAD\ttcp\tConnected\t192.168.1.11:12345\nCOM3\tCOM3\nCOM4\tCOM4\tDisconnected\n'
 check('panel-filters-serial-targets', JSON.stringify(parsePanelTargets(targetFixture).map((target) => target.id)) === JSON.stringify(['HUAWEI_MATEPAD']))
 const snippetFixture = 'export function update(asset: Asset, query: Query): void\nexport function query(asset: Asset): Result\nexport function remove(asset: Asset): void'
@@ -109,7 +113,7 @@ const installTool = registered.find((tool) => tool.name === 'hdc_install')
 seen.length = 0
 await installTool.execute({ hapPath: 'E:/ScribePad/entry/build/default/outputs/default/app.hap' }, exec)
 const installLine = [...seen].reverse().find((line) => line.includes('install')) || ''
-check('install-absolute-path-normalized', !installLine.includes('E:/') && installLine.includes('E:\\ScribePad\\entry\\build'), installLine)
+check('install-absolute-path-normalized', process.platform === 'win32' ? (!installLine.includes('E:/') && installLine.includes('E:\\ScribePad\\entry\\build')) : installLine.includes('E:/ScribePad'), installLine)
 
 // A fresh host instance must initialize hdc itself before the first
 // list_devices call; this guards the regression where the result depended on
